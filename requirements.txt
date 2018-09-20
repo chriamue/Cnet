@@ -1,0 +1,3 @@
+git+https://github.com/chriamue/protoseg
+keras
+opencv-python
