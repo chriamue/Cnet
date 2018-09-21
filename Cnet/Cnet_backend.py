@@ -3,7 +3,10 @@ import os
 import cv2
 import numpy as np
 import keras
+from keras.backend.tensorflow_backend import set_session
 from keras.layers import Input
+import tensorflow as tf
+
 from protoseg.backends import AbstractBackend
 from tensorboardX import SummaryWriter
 
@@ -15,6 +18,11 @@ class Cnet_backend(AbstractBackend):
 
     def __init__(self):
         AbstractBackend.__init__(self)
+        config = tf.ConfigProto()
+        config.gpu_options.allow_growth = True
+        config.log_device_placement = True
+        sess = tf.Session(config=config)
+        set_session(sess)
 
     def load_model(self, config, modelfile):
         inputs = Input(shape=(config['width'], config['height'],
@@ -56,25 +64,26 @@ class Cnet_backend(AbstractBackend):
 
     def train_epoch(self, trainer):
         print('train on gluoncv backend')
+        model = trainer.model.model
         batch_size = trainer.config['batch_size']
         summarysteps = trainer.config['summarysteps']
         summary_callback = SummaryCallback(trainer)
-        tensorboard_callback = keras.callbacks.TensorBoard(log_dir=self.logdir, histogram_freq=0, batch_size=summarysteps, write_graph=True, write_grads=False,
-                                                           write_images=True, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None,
+        tensorboard_callback = keras.callbacks.TensorBoard(log_dir=self.logdir, histogram_freq=summarysteps, batch_size=batch_size, write_graph=True, write_grads=False,
+                                                           write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None,
                                                            embeddings_data=None)
         datagen = self.datagenerator(
             trainer.dataloader.batch_generator(batch_size))
-        trainer.model.model.fit_generator(datagen, steps_per_epoch=len(
-            trainer.dataloader)//batch_size, epochs=1, callbacks=[summary_callback, tensorboard_callback])
+        val_x, val_y = trainer.valdataloader[0]
+        model.fit_generator(datagen, steps_per_epoch=len(
+            trainer.dataloader)//batch_size, epochs=1, validation_data=(np.array([val_x]), np.array([val_y])), validation_steps=len(
+            trainer.valdataloader)//batch_size, callbacks=[summary_callback])
 
     def validate_epoch(self, trainer):
         batch_size = trainer.config['batch_size']
         datagen = self.datagenerator(
             trainer.valdataloader.batch_generator(batch_size))
-        hist = trainer.model.model.fit_generator(datagen, steps_per_epoch=len(
-            trainer.valdataloader)//batch_size, epochs=1, verbose=1, callbacks=None,
-            validation_data=None, validation_steps=None, class_weight=None, max_queue_size=10, workers=1,
-            use_multiprocessing=False, shuffle=True, initial_epoch=0)
+        hist = trainer.model.model.evaluate_generator(datagen, steps=len(
+            trainer.valdataloader)//batch_size, max_queue_size=10, workers=1, use_multiprocessing=False, verbose=0)
         print(hist)
 
     def get_summary_writer(self, logdir='results/'):
