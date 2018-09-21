@@ -5,8 +5,8 @@ Cnet:
   loss_function: 'binary_crossentropy'
   classes: 2
   epochs: 100
-  batch_size: 2
-  learn_rate: 0.1
+  batch_size: 1
+  learn_rate: 0.01
   dropout: 0.5
   pretrained: True
   width: 256
