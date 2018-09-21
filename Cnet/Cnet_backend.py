@@ -15,6 +15,7 @@ from .Cnet import Cnet
 from .SummaryCallback import SummaryCallback
 K.set_image_data_format('channels_last')
 
+
 class Cnet_backend(AbstractBackend):
 
     def __init__(self):
@@ -26,10 +27,9 @@ class Cnet_backend(AbstractBackend):
         set_session(sess)
 
     def load_model(self, config, modelfile):
-        inputs = Input(shape=(config['width'], config['height'],
-                              3 if config['color_img'] == True else 1))
-        model = Cnet(
-            inputs=inputs, classes=config['classes'], dropout=config['dropout'])
+        model = Cnet(config['width'], config['height'],
+                     3 if config['color_img'] == True else 1, config['mask_width'], config['mask_height'],
+                     classes=config['classes'], dropout=config['dropout'])
         model.summary()
         if os.path.isfile(modelfile):
             model.load_weights(modelfile, by_name=True)
@@ -50,8 +50,6 @@ class Cnet_backend(AbstractBackend):
         self.summary_callback = SummaryCallback(trainer)
 
     def dataloader_format(self, img, mask=None):
-        #if img.ndim < 3:
-        #    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
         img = np.atleast_3d(img)
         if mask is None:
             return img
@@ -71,7 +69,7 @@ class Cnet_backend(AbstractBackend):
         model = trainer.model.model
         batch_size = trainer.config['batch_size']
         summarysteps = trainer.config['summarysteps']
-        
+
         tensorboard_callback = keras.callbacks.TensorBoard(log_dir=self.logdir, histogram_freq=summarysteps,
                                                            batch_size=batch_size, write_graph=True, write_grads=False,
                                                            write_images=False)
@@ -80,7 +78,7 @@ class Cnet_backend(AbstractBackend):
         val_x, val_y = trainer.valdataloader[0]
         model.fit_generator(datagen, steps_per_epoch=len(
             trainer.dataloader)//batch_size, epochs=1, validation_data=(np.array([val_x]), np.array([val_y])), validation_steps=len(
-            trainer.valdataloader)//batch_size, callbacks=[self.summary_callback])
+            trainer.valdataloader)//batch_size, callbacks=[self.summary_callback, tensorboard_callback])
 
     def validate_epoch(self, trainer):
         batch_size = trainer.config['batch_size']

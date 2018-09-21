@@ -11,6 +11,8 @@ Cnet:
   pretrained: True
   width: 256
   height: 256
+  mask_width: 64
+  mask_height: 64
   orig_width: 580
   orig_height: 420
   summarysteps: 10
