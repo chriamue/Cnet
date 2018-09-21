@@ -4,17 +4,17 @@ Cnet:
   optimizer: 'rmsprop'
   loss_function: 'binary_crossentropy'
   classes: 2
-  epochs: 10
+  epochs: 100
   batch_size: 2
   learn_rate: 0.1
   dropout: 0.5
   pretrained: True
-  width: 480
-  height: 360
+  width: 256
+  height: 256
   orig_width: 580
   orig_height: 420
   summarysteps: 10
-  color_img: True
+  gray_img: True
   gray_mask: True
   metrices:
     - 'dice': 'protoseg.metrices.dice.dice'

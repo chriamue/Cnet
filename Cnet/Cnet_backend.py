@@ -3,6 +3,7 @@ import os
 import cv2
 import numpy as np
 import keras
+from keras import backend as K
 from keras.backend.tensorflow_backend import set_session
 from keras.layers import Input
 import tensorflow as tf
@@ -12,7 +13,7 @@ from tensorboardX import SummaryWriter
 
 from .Cnet import Cnet
 from .SummaryCallback import SummaryCallback
-
+K.set_image_data_format('channels_last')
 
 class Cnet_backend(AbstractBackend):
 
@@ -20,7 +21,7 @@ class Cnet_backend(AbstractBackend):
         AbstractBackend.__init__(self)
         config = tf.ConfigProto()
         config.gpu_options.allow_growth = True
-        config.log_device_placement = True
+        config.log_device_placement = False
         sess = tf.Session(config=config)
         set_session(sess)
 
@@ -29,6 +30,7 @@ class Cnet_backend(AbstractBackend):
                               3 if config['color_img'] == True else 1))
         model = Cnet(
             inputs=inputs, classes=config['classes'], dropout=config['dropout'])
+        model.summary()
         if os.path.isfile(modelfile):
             model.load_weights(modelfile, by_name=True)
             print('loaded model from:', modelfile)
@@ -43,11 +45,13 @@ class Cnet_backend(AbstractBackend):
         loss = trainer.config['loss_function']
         if trainer.config['loss_function'] == 'default':
             loss = 'categorical_crossentropy'
-        trainer.model.model.compile(optimizer=optimizer, loss=loss)
+        trainer.model.model.compile(optimizer=optimizer, loss=loss,
+                                    metrics=['accuracy'])
+        self.summary_callback = SummaryCallback(trainer)
 
     def dataloader_format(self, img, mask=None):
-        if img.ndim < 3:
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
+        #if img.ndim < 3:
+        #    img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
         img = np.atleast_3d(img)
         if mask is None:
             return img
@@ -56,7 +60,7 @@ class Cnet_backend(AbstractBackend):
             mask = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
         mask = np.atleast_3d(mask)
         mask[mask > 0] = 1  # binary mask
-        return img, mask
+        return img, mask.astype(np.float32)
 
     def datagenerator(self, generator):
         for (imgs, labels) in generator:
@@ -67,34 +71,47 @@ class Cnet_backend(AbstractBackend):
         model = trainer.model.model
         batch_size = trainer.config['batch_size']
         summarysteps = trainer.config['summarysteps']
-        summary_callback = SummaryCallback(trainer)
-        tensorboard_callback = keras.callbacks.TensorBoard(log_dir=self.logdir, histogram_freq=summarysteps, batch_size=batch_size, write_graph=True, write_grads=False,
-                                                           write_images=False, embeddings_freq=0, embeddings_layer_names=None, embeddings_metadata=None,
-                                                           embeddings_data=None)
+        
+        tensorboard_callback = keras.callbacks.TensorBoard(log_dir=self.logdir, histogram_freq=summarysteps,
+                                                           batch_size=batch_size, write_graph=True, write_grads=False,
+                                                           write_images=False)
         datagen = self.datagenerator(
             trainer.dataloader.batch_generator(batch_size))
         val_x, val_y = trainer.valdataloader[0]
         model.fit_generator(datagen, steps_per_epoch=len(
             trainer.dataloader)//batch_size, epochs=1, validation_data=(np.array([val_x]), np.array([val_y])), validation_steps=len(
-            trainer.valdataloader)//batch_size, callbacks=[summary_callback])
+            trainer.valdataloader)//batch_size, callbacks=[self.summary_callback])
 
     def validate_epoch(self, trainer):
         batch_size = trainer.config['batch_size']
         datagen = self.datagenerator(
             trainer.valdataloader.batch_generator(batch_size))
-        hist = trainer.model.model.evaluate_generator(datagen, steps=len(
-            trainer.valdataloader)//batch_size, max_queue_size=10, workers=1, use_multiprocessing=False, verbose=0)
-        print(hist)
+
+        for i, (X_batch, y_batch) in enumerate(datagen):
+            X_batch = X_batch.astype(np.float32)
+            prediction = self.predict(trainer, X_batch[0])
+            trainer.metric(
+                prediction, y_batch[0], prefix=trainer.name)
+            if trainer.summarywriter:
+                image = (np.squeeze(X_batch[0])/255.0)
+                mask = (np.squeeze(y_batch[0])).astype(np.float32)
+                predicted = np.squeeze(prediction).astype(np.float32)
+                trainer.summarywriter.add_image(
+                    trainer.name+"val_image", image, global_step=trainer.epoch)
+                trainer.summarywriter.add_image(
+                    trainer.name+"val_mask", mask, global_step=trainer.epoch)
+                trainer.summarywriter.add_image(
+                    trainer.name+"val_predicted", predicted, global_step=trainer.epoch)
 
     def get_summary_writer(self, logdir='results/'):
         self.logdir = logdir
         return SummaryWriter(log_dir=logdir)
 
     def predict(self, predictor, img):
-        img_batch = np.array([img])
-        return self.batch_predict(predictor, img_batch)
+        predict = self.batch_predict(predictor, np.array([img]))[0]
+        return predict
 
     def batch_predict(self, predictor, img_batch):
         model = predictor.model.model
         predict = model.predict_on_batch(img_batch)
-        return predict
+        return predict.astype(np.uint8)
