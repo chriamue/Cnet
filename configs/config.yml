@@ -1,9 +1,9 @@
 Cnet:
   backend: Cnet_backend
-  datapath: ~/.kaggle/competitions/ultrasound-nerve-segmentation/fulldataset
+  datapath: ~/.kaggle/competitions/ultrasound-nerve-segmentation
   optimizer: 'rmsprop'
-  loss_function: 'binary_crossentropy'
-  classes: 2
+  loss_function: 'mean_squared_error'
+  classes: 1
   epochs: 5
   batch_size: 1
   learn_rate: 0.001
@@ -18,6 +18,9 @@ Cnet:
   summarysteps: 25
   gray_img: True
   gray_mask: True
+  cnet_levels: 3
+  cnet_depth: 2
+  cnet_base_filter: 32
   shape_augmentation:
     - Affine:
         rotate: -15
@@ -31,3 +34,11 @@ Cnet:
     - 'dice': 'protoseg.metrices.dice.dice'
     - 'jaccard': 'protoseg.metrices.jaccard.jaccard'
     - 'iou': 'protoseg.metrices.iou.iou'
+
+  hyperparamopt:
+    - optimizer: ['adam', 'rmsprop']
+    - loss_function: ['binary_crossentropy', 'mean_squared_error', 'kullback_leibler_divergence']
+    - mask_width: [64, 128, 256]
+    - mask_height: [64, 128, 256]
+    - cnet_levels: [2, 3]
+    - cnet_depth: [2, 3, 4]

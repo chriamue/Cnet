@@ -2,19 +2,22 @@ import math
 from keras.models import Model, Sequential
 from keras.layers import Input, Dense, Conv2D, Reshape, MaxPooling2D, UpSampling2D, Dropout, BatchNormalization, Concatenate, Add, Activation
 from .RandomSelect import RandomSelect
+from .Bridge import Bridge
+
 
 class Cnet(Model):
     def __repr__(self):
         print('Cnet')
 
-    def __init__(self, inwidth=256, inheight=256, inchan=1, outwidth=256, outheight=256, classes=2, dropout=0.5):
+    def __init__(self, inwidth=256, inheight=256, inchan=1, outwidth=256, outheight=256, classes=2, levels=2, depth=3,
+                 base_filter=16, dropout=0.5):
         inputs = Input(shape=(inwidth, inheight, inchan))
         scale_steps = inwidth // outwidth
         assert(inheight == scale_steps*outheight)
 
         self.levels = 2
-        self.depth = 5
-        self.base_filter = 16
+        self.depth = 3
+        self.base_filter = 32
 
         self.batchnorm = True
         self.dropout = dropout
@@ -25,26 +28,30 @@ class Cnet(Model):
         self.bridges = []
         self.b = self.block(self.base_filter//2, self.base_filter, inputs)
         for i in range(self.depth):
-            self.b = self.downblock(self.base_filter * 2**i, self.base_filter*2**(i+1), self.b)
+            self.b = self.downblock(
+                self.base_filter * 2**i, self.base_filter*2**(i+1), self.b)
             self.downblocks.append(self.b)
 
-        self.bridge = self.downblock(self.base_filter*2**self.depth, self.base_filter*2**self.depth, self.b)
+        self.bridge = self.downblock(
+            self.base_filter*2**self.depth, self.base_filter*2**self.depth, self.b)
 
         m = 16 * 2**self.depth
         for i in range(self.depth):
             self.b = self.upblock(m // 2**i, m//2**(i+1), self.bridge)
             self.upblocks.append(self.b)
-            self.bridge = Concatenate()(
+            self.bridge = Bridge()(
                 [self.downblocks[self.depth-i-1], self.b])
             self.bridges.append(self.bridge)
 
-        self.scale_block = self.upblock(self.base_filter*2, self.base_filter, self.bridge)
+        self.scale_block = self.upblock(
+            self.base_filter*2, self.base_filter, self.bridge)
 
         for i in range(int(math.sqrt(scale_steps))):
             self.scale_block = self.downblock(
                 self.base_filter//2**i, self.base_filter//2**(i+1), self.scale_block)
 
-        self.out = Conv2D(1, (1, 1), activation='sigmoid')(self.scale_block)
+        self.out = Conv2D(classes, (1, 1), activation='sigmoid')(
+            self.scale_block)
         super(Cnet, self).__init__(inputs=inputs, output=self.out)
 
     def block(self, input_filters, output_filters, input_layer, down=True):
@@ -54,7 +61,7 @@ class Cnet(Model):
                            kernel_initializer=self.kernel_initializer)(layer)
         drop1 = Dropout(self.dropout)(layer)
         layer = Conv2D(output_filters, (3, 3), activation=self.activation, padding='same',
-                           kernel_initializer=self.kernel_initializer)(drop1)
+                       kernel_initializer=self.kernel_initializer)(drop1)
         if self.batchnorm is True:
             return BatchNormalization()(drop1)
         else:
@@ -78,11 +85,11 @@ class Cnet(Model):
     def resnet(self, filters, input_layer):
         x = input_layer
         for i in range(self.levels):
-            y = Conv2D(filters, (1, 1),strides=(1, 1),
+            y = Conv2D(filters, (1, 1), strides=(1, 1),
                        padding='same')(x)
             y = BatchNormalization()(y)
             y = Activation(self.activation)(y)
-            x = RandomSelect(self.dropout/(i+1))([x,y])
+            x = RandomSelect(self.dropout/(i+1))([x, y])
         x = Add()([input_layer, x])
         x = Activation(self.activation)(x)
         return x
