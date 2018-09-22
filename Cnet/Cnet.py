@@ -1,7 +1,7 @@
 import math
 from keras.models import Model, Sequential
 from keras.layers import Input, Dense, Conv2D, Reshape, MaxPooling2D, UpSampling2D, Dropout, BatchNormalization, Concatenate, Add, Activation
-
+from .RandomSelect import RandomSelect
 
 class Cnet(Model):
     def __repr__(self):
@@ -77,12 +77,12 @@ class Cnet(Model):
 
     def resnet(self, filters, input_layer):
         x = input_layer
-        for _ in range(self.levels):
-            x = Conv2D(filters, (1, 1),strides=(1, 1),
+        for i in range(self.levels):
+            y = Conv2D(filters, (1, 1),strides=(1, 1),
                        padding='same')(x)
-            x = BatchNormalization()(x)
-            x = Activation(self.activation)(x)
-            
+            y = BatchNormalization()(y)
+            y = Activation(self.activation)(y)
+            x = RandomSelect(self.dropout/(i+1))([x,y])
         x = Add()([input_layer, x])
         x = Activation(self.activation)(x)
         return x
