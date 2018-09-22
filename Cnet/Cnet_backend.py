@@ -78,7 +78,7 @@ class Cnet_backend(AbstractBackend):
         val_x, val_y = trainer.valdataloader[0]
         model.fit_generator(datagen, steps_per_epoch=len(
             trainer.dataloader)//batch_size, epochs=1, validation_data=(np.array([val_x]), np.array([val_y])), validation_steps=len(
-            trainer.valdataloader)//batch_size, callbacks=[self.summary_callback, tensorboard_callback])
+            trainer.valdataloader)//batch_size, callbacks=[self.summary_callback])#, tensorboard_callback])
 
     def validate_epoch(self, trainer):
         batch_size = trainer.config['batch_size']
@@ -89,7 +89,7 @@ class Cnet_backend(AbstractBackend):
             X_batch = X_batch.astype(np.float32)
             prediction = self.predict(trainer, X_batch[0])
             trainer.metric(
-                prediction, y_batch[0], prefix=trainer.name)
+                prediction.astype(np.uint8), y_batch[0], prefix=trainer.name)
             if trainer.summarywriter:
                 image = (np.squeeze(X_batch[0])/255.0)
                 mask = (np.squeeze(y_batch[0])).astype(np.float32)
@@ -112,4 +112,4 @@ class Cnet_backend(AbstractBackend):
     def batch_predict(self, predictor, img_batch):
         model = predictor.model.model
         predict = model.predict_on_batch(img_batch)
-        return predict.astype(np.uint8)
+        return predict
