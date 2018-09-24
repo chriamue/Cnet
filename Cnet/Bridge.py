@@ -1,18 +1,21 @@
 import numpy as np
 from keras import backend as K
-from keras.layers import Concatenate
+from keras.layers import Concatenate, Lambda
 from keras.engine.topology import Layer
 from keras import layers
 
 
 class Bridge(Layer):
     """
+    concats both layers if gate is open,
+    replicates first layer if gate is closed
+    source: https://github.com/dblN/stochastic_depth_keras/blob/master/train.py
     """
 
-    def __init__(self, rate=0.5, axis=-1, **kwargs):
+    def __init__(self, gate, axis=-1, **kwargs):
         super(Bridge, self).__init__(**kwargs)
-        self.rate = min(1., max(0., rate))
         self.axis = axis
+        self.gate = gate
 
     def build(self, input_shape):
         assert(len(input_shape) == 2)
@@ -40,4 +43,4 @@ class Bridge(Layer):
         assert isinstance(inputs, list)
         assert(len(inputs) == 2)
         input_a, input_b = inputs
-        return Concatenate()([input_a, input_b])
+        return K.switch(self.gate, Concatenate()([input_a, input_b]), Concatenate()([input_a, input_a]))

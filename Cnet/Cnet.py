@@ -3,6 +3,7 @@ from keras.models import Model, Sequential
 from keras.layers import Input, Dense, Conv2D, Reshape, MaxPooling2D, UpSampling2D, Dropout, BatchNormalization, Concatenate, Add, Activation
 from .RandomSelect import RandomSelect
 from .Bridge import Bridge
+from keras import backend as K
 
 
 class Cnet(Model):
@@ -18,6 +19,8 @@ class Cnet(Model):
         self.levels = 2
         self.depth = 3
         self.base_filter = 32
+
+        self.gate = K.variable(1, dtype='uint8', name='gate')
 
         self.batchnorm = True
         self.dropout = dropout
@@ -39,8 +42,7 @@ class Cnet(Model):
         for i in range(self.depth):
             self.b = self.upblock(m // 2**i, m//2**(i+1), self.bridge)
             self.upblocks.append(self.b)
-            self.bridge = Bridge()(
-                [self.downblocks[self.depth-i-1], self.b])
+            self.bridge = Bridge(self.gate)([self.b,self.downblocks[self.depth-i-1]])
             self.bridges.append(self.bridge)
 
         self.scale_block = self.upblock(

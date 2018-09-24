@@ -12,6 +12,8 @@ from protoseg.backends import AbstractBackend
 from tensorboardX import SummaryWriter
 
 from .Cnet import Cnet
+from .DiceLoss import *
+from .RandomizeCallback import RandomizeCallback
 from .SummaryCallback import SummaryCallback
 K.set_image_data_format('channels_last')
 
@@ -46,9 +48,14 @@ class Cnet_backend(AbstractBackend):
         loss = trainer.config['loss_function']
         if trainer.config['loss_function'] == 'default':
             loss = 'categorical_crossentropy'
+        elif trainer.config['loss_function'] == 'dice_loss':
+            loss = dice_loss
+        elif trainer.config['loss_function'] == 'dice_crossentropy':
+            loss = dice_crossentropy
         trainer.model.model.compile(optimizer=optimizer, loss=loss,
-                                    metrics=['accuracy'])
+                                    metrics=['accuracy', dice])
         self.summary_callback = SummaryCallback(trainer)
+        self.randomize_callback = RandomizeCallback(rate=trainer.config['dropout'])
 
     def dataloader_format(self, img, mask=None):
         img = np.atleast_3d(img)
@@ -79,7 +86,8 @@ class Cnet_backend(AbstractBackend):
         val_x0, val_y0 = trainer.valdataloader[0]
         val_x1, val_y1 = trainer.valdataloader[1]
         model.fit_generator(datagen, steps_per_epoch=len(
-            trainer.dataloader)//batch_size-1, epochs=1, validation_data=(np.array([val_x0, val_x1]), np.array([val_y0, val_y1])), validation_steps=2, callbacks=[self.summary_callback])  # , tensorboard_callback])
+            trainer.dataloader)//batch_size-1, epochs=1, validation_data=(np.array([val_x0, val_x1]), np.array([val_y0, val_y1])), validation_steps=2,
+            callbacks=[self.summary_callback, self.randomize_callback])  # , tensorboard_callback])
 
     def validate_epoch(self, trainer):
         batch_size = trainer.config['batch_size']
