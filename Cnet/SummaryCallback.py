@@ -53,7 +53,7 @@ class SummaryCallback(Callback):
                         self.trainer.summarywriter.add_image(
                                 self.trainer.name+'mask', mask.astype(np.float32), global_step=self.trainer.global_step)
                         self.trainer.summarywriter.add_image(
-                                self.trainer.name+'predicted', predicted, global_step=self.trainer.global_step)
+                                self.trainer.name+'predicted', predicted/(predicted.max()+0.0001), global_step=self.trainer.global_step)
         else:
             if self.trainer.summarywriter:
                 self.trainer.summarywriter.add_scalar(
@@ -71,4 +71,4 @@ class SummaryCallback(Callback):
                     self.trainer.summarywriter.add_image(
                             self.trainer.name+'val_mask', mask, global_step=self.trainer.global_step)
                     self.trainer.summarywriter.add_image(
-                            self.trainer.name+'val_predicted', predicted, global_step=self.trainer.global_step)
+                            self.trainer.name+'val_predicted', predicted/(predicted.max()+0.0001), global_step=self.trainer.global_step)
