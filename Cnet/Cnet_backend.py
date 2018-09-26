@@ -97,6 +97,7 @@ class Cnet_backend(AbstractBackend):
         for i, (X_batch, y_batch) in enumerate(datagen):
             X_batch = X_batch.astype(np.float32)
             prediction = self.predict(trainer, X_batch[0])
+            prediction = self.postprocess(prediction)
             trainer.metric(
                 prediction.astype(np.uint8), y_batch[0], prefix=trainer.name)
             if trainer.summarywriter:
@@ -116,9 +117,15 @@ class Cnet_backend(AbstractBackend):
 
     def predict(self, predictor, img):
         predict = self.batch_predict(predictor, np.array([img]))[0]
-        return predict
+        return self.postprocess(predict)
 
     def batch_predict(self, predictor, img_batch):
         model = predictor.model.model
         predict = model.predict_on_batch(img_batch)
         return predict
+
+    def postprocess(self, mask):
+        threshold = 0.3
+        mask[mask > threshold] = 1
+        mask[mask <= threshold] = 0
+        return mask
