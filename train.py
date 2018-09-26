@@ -11,8 +11,6 @@ from protoseg import Trainer
 from protoseg import Report
 from protoseg import backends
 
-from Cnet.Cnet_backend import Cnet_backend
-
 resultspath = 'results/'
 
 def help():
@@ -24,7 +22,7 @@ if __name__ == "__main__":
         print(help())
         sys.exit(1)
 
-    backends.register_backend('Cnet_backend', Cnet_backend)
+    backends.register_backend('Cnet_backend', 'Cnet.Cnet_backend.Cnet_backend')
     configs = Config(sys.argv[1])    
     for run in configs:
         print("Run: ", run)
