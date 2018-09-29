@@ -9,6 +9,7 @@ from keras.layers import Input
 import tensorflow as tf
 
 from protoseg.backends import AbstractBackend
+from protoseg.predictor import Predictor
 from tensorboardX import SummaryWriter
 
 from .Cnet import Cnet
@@ -54,6 +55,7 @@ class Cnet_backend(AbstractBackend):
             loss = dice_crossentropy
         trainer.model.model.compile(optimizer=optimizer, loss=loss,
                                     metrics=['accuracy', dice])
+        trainer.predictor = Predictor(model=trainer.model, config=trainer.config, backend=self)
         self.summary_callback = SummaryCallback(trainer)
         self.randomize_callback = RandomizeCallback(rate=trainer.config['dropout'])
 
@@ -96,8 +98,7 @@ class Cnet_backend(AbstractBackend):
 
         for i, (X_batch, y_batch) in enumerate(datagen):
             X_batch = X_batch.astype(np.float32)
-            prediction = self.predict(trainer, X_batch[0])
-            prediction = self.postprocess(prediction)
+            prediction = trainer.predictor.predict(trainer, X_batch[0])
             trainer.metric(
                 prediction.astype(np.uint8), y_batch[0], prefix=trainer.name)
             if trainer.summarywriter:
@@ -123,9 +124,3 @@ class Cnet_backend(AbstractBackend):
         model = predictor.model.model
         predict = model.predict_on_batch(img_batch)
         return predict
-
-    def postprocess(self, mask):
-        threshold = 0.3
-        mask[mask > threshold] = 1
-        mask[mask <= threshold] = 0
-        return mask

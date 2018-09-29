@@ -36,6 +36,7 @@ class SummaryCallback(Callback):
         self.losses.append(loss)
         if self.validation is False:
             self.trainer.global_step += 1
+            self.trainer.loss += loss
             if batch % self.summarysteps == 0:
                 if self.trainer.summarywriter:
                     self.trainer.summarywriter.add_scalar(

@@ -16,6 +16,8 @@ from protoseg import backends
 datapath = 'data/'
 resultspath = 'results/'
 
+backends.register_backend('Cnet_backend', 'Cnet.Cnet_backend.Cnet_backend')
+backends.set_backend('Cnet_backend')
 
 # source: https://github.com/EdwardTyantov/ultrasound-nerve-segmentation/blob/master/submission.py
 def run_length_enc(label):
@@ -42,8 +44,6 @@ if __name__ == "__main__":
         print(help())
         sys.exit(1)
 
-    backends.register_backend('Cnet_backend', 'Cnet.Cnet_backend.Cnet_backend')
-
     configs = Config(sys.argv[1])
     for run in configs:
         print("create submission for: ", run)
@@ -66,7 +66,8 @@ if __name__ == "__main__":
         # dataloader
         dataloader = DataLoader(config=config, mode='test')
         # predictor
-        predictor = Predictor(model=model)
+        print(backends.backend())
+        predictor = Predictor(model=model, config=config, backend=backends.backend())
 
         with open(submissionfile, 'a') as f:
             f.write('img,pixels\n')
