@@ -33,7 +33,7 @@ class Cnet_backend(AbstractBackend):
         model = Cnet(config['width'], config['height'],
                      3 if config['color_img'] == True else 1, config['mask_width'], config['mask_height'],
                      classes=config['classes'], levels=config['cnet_levels'], depth=config['cnet_depth'],
-                     base_filter=config['cnet_base_filter'], dropout=config['dropout'])
+                     base_filter=config['cnet_base_filter'], dropout=config['dropout'], pretrained=config['pretrained'])
         model.summary()
         if os.path.isfile(modelfile):
             model.load_weights(modelfile, by_name=True)
@@ -55,9 +55,11 @@ class Cnet_backend(AbstractBackend):
             loss = dice_crossentropy
         trainer.model.model.compile(optimizer=optimizer, loss=loss,
                                     metrics=['accuracy', dice])
-        trainer.predictor = Predictor(model=trainer.model, config=trainer.config, backend=self)
+        trainer.predictor = Predictor(
+            model=trainer.model, config=trainer.config, backend=self)
         self.summary_callback = SummaryCallback(trainer)
-        self.randomize_callback = RandomizeCallback(rate=trainer.config['dropout'])
+        self.randomize_callback = RandomizeCallback(
+            rate=trainer.config['dropout'])
 
     def dataloader_format(self, img, mask=None):
         img = np.atleast_3d(img)
@@ -84,7 +86,7 @@ class Cnet_backend(AbstractBackend):
                                                            batch_size=batch_size, write_graph=True, write_grads=False,
                                                            write_images=False)
         datagen = self.datagenerator(
-            trainer.dataloader.batch_generator(batch_size))
+            trainer.dataloader.batch_generator(batch_size, shuffle=True))
         val_x0, val_y0 = trainer.valdataloader[0]
         val_x1, val_y1 = trainer.valdataloader[1]
         model.fit_generator(datagen, steps_per_epoch=len(
@@ -98,7 +100,7 @@ class Cnet_backend(AbstractBackend):
 
         for i, (X_batch, y_batch) in enumerate(datagen):
             X_batch = X_batch.astype(np.float32)
-            prediction = trainer.predictor.predict(trainer, X_batch[0])
+            prediction = trainer.predictor.predict(X_batch[0])
             trainer.metric(
                 prediction.astype(np.uint8), y_batch[0], prefix=trainer.name)
             if trainer.summarywriter:
@@ -118,7 +120,7 @@ class Cnet_backend(AbstractBackend):
 
     def predict(self, predictor, img):
         predict = self.batch_predict(predictor, np.array([img]))[0]
-        return self.postprocess(predict)
+        return predict
 
     def batch_predict(self, predictor, img_batch):
         model = predictor.model.model

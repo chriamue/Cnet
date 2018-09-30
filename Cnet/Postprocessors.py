@@ -11,7 +11,7 @@ def remove_small(img, min_pixels=200):
     removes small contours.
     '''
         #find all your connected components (white blobs in your image)
-    nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(img, connectivity=8)
+    nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(img.astype(np.uint8), connectivity=8)
     #connectedComponentswithStats yields every seperated component with information on each of them, such as size
     #the following part is just taking out the background which is also considered a component, but most of the time we don't want that.
     sizes = stats[1:, -1]; nb_components = nb_components - 1

@@ -1,17 +1,21 @@
 import math
+import h5py
+
 from keras.models import Model, Sequential
 from keras.layers import Input, Dense, Conv2D, Reshape, MaxPooling2D, UpSampling2D, Dropout, BatchNormalization, Concatenate, Add, Activation
+from keras import backend as K
+from keras_applications import inception_v3
+from keras.engine.saving import load_attributes_from_hdf5_group, load_weights_from_hdf5_group_by_name
+
 from .RandomSelect import RandomSelect
 from .Bridge import Bridge
-from keras import backend as K
-
 
 class Cnet(Model):
     def __repr__(self):
         print('Cnet')
 
     def __init__(self, inwidth=256, inheight=256, inchan=1, outwidth=256, outheight=256, classes=2, levels=2, depth=3,
-                 base_filter=16, dropout=0.5):
+                 base_filter=16, dropout=0.5, pretrained=False):
         inputs = Input(shape=(inwidth, inheight, inchan))
         scale_steps = inwidth // outwidth
         assert(inheight == scale_steps*outheight)
@@ -26,6 +30,8 @@ class Cnet(Model):
         self.dropout = dropout
         self.kernel_initializer = 'he_normal'
         self.activation = 'relu'
+        self.pretrained = pretrained
+
         self.downblocks = []
         self.upblocks = []
         self.bridges = []
@@ -42,7 +48,8 @@ class Cnet(Model):
         for i in range(self.depth):
             self.b = self.upblock(m // 2**i, m//2**(i+1), self.bridge)
             self.upblocks.append(self.b)
-            self.bridge = Bridge(self.gate)([self.b,self.downblocks[self.depth-i-1]])
+            self.bridge = Bridge(self.gate)(
+                [self.b, self.downblocks[self.depth-i-1]])
             self.bridges.append(self.bridge)
 
         self.scale_block = self.upblock(
@@ -54,7 +61,24 @@ class Cnet(Model):
 
         self.out = Conv2D(classes, (1, 1), activation='sigmoid')(
             self.scale_block)
+
         super(Cnet, self).__init__(inputs=inputs, output=self.out)
+
+        if self.pretrained == True:
+            try:
+                self.weights_path = keras.utils.get_file(
+                    'inception_v3_weights_tf_dim_ordering_tf_kernels.h5',
+                    inception_v3.WEIGHTS_PATH,
+                    cache_subdir='models',
+                    file_hash='9a0d58056eeedaa3f26cb7ebd46da564')
+                self.load_pretrained_weights(self.weights_path)
+            except Exception as e:
+                print(e)
+
+    def load_pretrained_weights(self, weights_path):
+        f = h5py.File(self.weights_path, 'r')
+        load_weights_from_hdf5_group_by_name(
+            f, self.layers, skip_mismatch=True)
 
     def block(self, input_filters, output_filters, input_layer, down=True):
         layer = input_layer
