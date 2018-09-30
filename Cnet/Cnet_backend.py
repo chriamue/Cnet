@@ -77,7 +77,7 @@ class Cnet_backend(AbstractBackend):
             yield np.array(imgs), np.array(labels)
 
     def train_epoch(self, trainer):
-        print('train on gluoncv backend')
+        print('train on Cnet backend')
         model = trainer.model.model
         batch_size = trainer.config['batch_size']
         summarysteps = trainer.config['summarysteps']
