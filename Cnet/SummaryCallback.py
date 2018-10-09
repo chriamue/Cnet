@@ -46,9 +46,9 @@ class SummaryCallback(Callback):
                         image = image[0]
                         image = np.rollaxis(image, axis=2, start=0)
                         mask = K.eval(self.mask)[0]
-                        mask = np.rollaxis(mask, axis=2, start=0)
+                        mask = np.rollaxis(mask, axis=2, start=0)[1]
                         predicted = K.eval(self.predicted)[0]
-                        predicted = np.rollaxis(predicted, axis=2, start=0)
+                        predicted = np.rollaxis(predicted, axis=2, start=0)[1]
                         self.trainer.summarywriter.add_image(
                                 self.trainer.name+'image',image/255.0, global_step=self.trainer.global_step)
                         self.trainer.summarywriter.add_image(
@@ -64,9 +64,9 @@ class SummaryCallback(Callback):
                     image = image[0]
                     image = np.rollaxis(image, axis=2, start=0)
                     mask = K.eval(self.mask)[0]
-                    mask = np.rollaxis(mask, axis=2, start=0)
+                    mask = np.rollaxis(mask, axis=2, start=0)[1]
                     predicted = K.eval(self.predicted)[0]
-                    predicted = np.rollaxis(predicted, axis=2, start=0)
+                    predicted = np.rollaxis(predicted, axis=2, start=0)[1]
                     self.trainer.summarywriter.add_image(
                             self.trainer.name+'val_image',image/255.0, global_step=self.trainer.global_step)
                     self.trainer.summarywriter.add_image(
