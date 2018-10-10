@@ -107,7 +107,7 @@ class Cnet_backend(AbstractBackend):
             prediction = trainer.predictor.predict(X_batch[0])
             y = np.argmax(y_batch[0], axis=-1).squeeze()
             trainer.metric(
-                prediction.astype(np.uint8), y, prefix=trainer.name)
+                prediction, y, prefix=trainer.name)
             if trainer.summarywriter:
                 image = (np.squeeze(X_batch[0])/255.0)
                 mask = y
@@ -119,8 +119,9 @@ class Cnet_backend(AbstractBackend):
                 trainer.summarywriter.add_image(
                     trainer.name+"val_predicted", predicted, global_step=global_step+i)
                 raw_prediction = self.predict(trainer.predictor, X_batch[0])
+                raw_prediction = (np.sum(raw_prediction, axis=-1) - raw_prediction[:,:,0])/(raw_prediction.shape[-1]-1) # mean of classes without background
                 trainer.summarywriter.add_image(
-                    trainer.name+"val_predicted_raw", raw_prediction, global_step=global_step+i)
+                    trainer.name+"val_predicted_mean", raw_prediction, global_step=global_step+i)
 
     def get_summary_writer(self, logdir='results/'):
         self.logdir = logdir
@@ -130,8 +131,8 @@ class Cnet_backend(AbstractBackend):
         predict = self.batch_predict(predictor, np.array([img]))[0]
         return predict
 
+
     def batch_predict(self, predictor, img_batch):
         model = predictor.model.model
         predict = model.predict_on_batch(img_batch)
-        predict = np.argmax(predict, axis=-1)
         return predict
