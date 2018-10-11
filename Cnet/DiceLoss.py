@@ -19,4 +19,4 @@ def binary_crossentropy(y_true, y_pred):
     return K.mean(K.binary_crossentropy(y_true, y_pred), axis=-1)
 
 def dice_crossentropy(y_true, y_pred):
-    return binary_crossentropy(y_true, y_pred) * dice_loss(y_true, y_pred) 
+    return categorical_crossentropy(y_true, y_pred) * dice_loss(y_true, y_pred) 

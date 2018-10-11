@@ -21,6 +21,8 @@ K.set_image_data_format('channels_last')
 
 class Cnet_backend(AbstractBackend):
 
+    config = None
+
     def __init__(self):
         AbstractBackend.__init__(self)
         config = tf.ConfigProto()
@@ -30,6 +32,7 @@ class Cnet_backend(AbstractBackend):
         set_session(sess)
 
     def load_model(self, config, modelfile):
+        self.config = config
         model = Cnet(config['width'], config['height'],
                      3 if config['color_img'] == True else 1, config['mask_width'], config['mask_height'],
                      classes=config['classes'], levels=config['cnet_levels'], depth=config['cnet_depth'],
@@ -45,6 +48,7 @@ class Cnet_backend(AbstractBackend):
         print('saved model to:', model.modelfile)
 
     def init_trainer(self, trainer):
+        self.config = trainer.config
         optimizer = trainer.config['optimizer']
         loss = trainer.config['loss_function']
         if trainer.config['loss_function'] == 'default':
@@ -70,7 +74,7 @@ class Cnet_backend(AbstractBackend):
             mask = cv2.cvtColor(mask, cv2.COLOR_RGB2GRAY)
         mask = np.atleast_3d(mask)
         mask[mask > 0] = 1  # binary mask
-        return img, mask.astype(np.float32)
+        return img, keras.utils.to_categorical(mask, num_classes=self.config.get('classes'))
 
     def datagenerator(self, generator):
         for (imgs, labels) in generator:
@@ -97,22 +101,27 @@ class Cnet_backend(AbstractBackend):
         batch_size = trainer.config['batch_size']
         datagen = self.datagenerator(
             trainer.valdataloader.batch_generator(batch_size))
-
+        global_step = int(trainer.epoch * len(trainer.valdataloader)/batch_size)
         for i, (X_batch, y_batch) in enumerate(datagen):
             X_batch = X_batch.astype(np.float32)
             prediction = trainer.predictor.predict(X_batch[0])
+            y = np.argmax(y_batch[0], axis=-1).squeeze()
             trainer.metric(
-                prediction.astype(np.uint8), y_batch[0], prefix=trainer.name)
+                prediction, y, prefix=trainer.name)
             if trainer.summarywriter:
                 image = (np.squeeze(X_batch[0])/255.0)
-                mask = (np.squeeze(y_batch[0])).astype(np.float32)
-                predicted = np.squeeze(prediction).astype(np.float32)
+                mask = y
+                predicted = prediction
                 trainer.summarywriter.add_image(
-                    trainer.name+"val_image", image, global_step=trainer.epoch)
+                    trainer.name+"val_image", image, global_step=global_step+i)
                 trainer.summarywriter.add_image(
-                    trainer.name+"val_mask", mask, global_step=trainer.epoch)
+                    trainer.name+"val_mask", mask, global_step=global_step+i)
                 trainer.summarywriter.add_image(
-                    trainer.name+"val_predicted", predicted, global_step=trainer.epoch)
+                    trainer.name+"val_predicted", predicted, global_step=global_step+i)
+                raw_prediction = self.predict(trainer.predictor, X_batch[0])
+                raw_prediction = (np.sum(raw_prediction, axis=-1) - raw_prediction[:,:,0])/(raw_prediction.shape[-1]-1) # mean of classes without background
+                trainer.summarywriter.add_image(
+                    trainer.name+"val_predicted_mean", raw_prediction, global_step=global_step+i)
 
     def get_summary_writer(self, logdir='results/'):
         self.logdir = logdir
@@ -121,6 +130,7 @@ class Cnet_backend(AbstractBackend):
     def predict(self, predictor, img):
         predict = self.batch_predict(predictor, np.array([img]))[0]
         return predict
+
 
     def batch_predict(self, predictor, img_batch):
         model = predictor.model.model

@@ -4,6 +4,7 @@ import os
 import sys
 import cv2
 import numpy as np
+from tqdm import tqdm
 
 from protoseg import Augmentation
 from protoseg import Config
@@ -71,9 +72,7 @@ if __name__ == "__main__":
 
         with open(submissionfile, 'a') as f:
             f.write('img,pixels\n')
-            for index, (img, filename) in enumerate(dataloader):
-                print('{}/{}'.format(index+1, len(dataloader)))
-
+            for index, (img, filename) in tqdm(enumerate(dataloader), total=len(dataloader)):
                 mask = predictor.predict(img)
                 mask = cv2.resize(
                     mask, (config['orig_width'], config['orig_height']), interpolation=cv2.INTER_NEAREST)

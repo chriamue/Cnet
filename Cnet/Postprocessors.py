@@ -1,6 +1,14 @@
 import numpy as np
 import cv2
 
+def argmax(img, background=1.0):
+    '''
+    background can be reduces before argmax
+    '''
+    img_ = img
+    img_[:,:,0] *= background
+    return np.argmax(img_, axis=-1)
+
 def scalemax(img, epsilon = 0.00001):
     img = img / (img.max()+epsilon)
     return img
