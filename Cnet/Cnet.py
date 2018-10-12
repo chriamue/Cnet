@@ -7,8 +7,9 @@ from keras import backend as K
 from keras_applications import inception_v3
 from keras.engine.saving import load_attributes_from_hdf5_group, load_weights_from_hdf5_group_by_name
 
-from .RandomSelect import RandomSelect
+from .Select import Select
 from .Bridge import Bridge
+
 
 class Cnet(Model):
     def __repr__(self):
@@ -24,7 +25,8 @@ class Cnet(Model):
         self.depth = 3
         self.base_filter = 32
 
-        self.gate = K.variable(1, dtype='uint8', name='gate')
+        self.gates = []
+        self.switches = []
 
         self.batchnorm = True
         self.dropout = dropout
@@ -48,7 +50,10 @@ class Cnet(Model):
         for i in range(self.depth):
             self.b = self.upblock(m // 2**i, m//2**(i+1), self.bridge)
             self.upblocks.append(self.b)
-            self.bridge = Bridge(self.gate)(
+
+            gate = K.variable(1, dtype='uint8', name='gate')
+            self.gates.append(gate)
+            self.bridge = Bridge(gate)(
                 [self.b, self.downblocks[self.depth-i-1]])
             self.bridges.append(self.bridge)
 
@@ -110,12 +115,14 @@ class Cnet(Model):
 
     def resnet(self, filters, input_layer):
         x = input_layer
-        for i in range(self.levels):
-            y = Conv2D(filters, (1, 1), strides=(1, 1),
-                       padding='same')(x)
-            y = BatchNormalization()(y)
-            y = Activation(self.activation)(y)
-            x = RandomSelect(self.dropout/(i+1))([x, y])
+        # for i in range(self.levels):
+        #     y = Conv2D(filters, (1, 1), strides=(1, 1),
+        #                padding='same')(x)
+        #     y = BatchNormalization()(y)
+        #     y = Activation(self.activation)(y)
+        #     switch = K.variable(1, dtype='uint8', name='switch')
+        #     self.switches.append(switch)
+        #     x = Select(switch)([x, y])
         x = Add()([input_layer, x])
         x = Activation(self.activation)(x)
         return x

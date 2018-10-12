@@ -1,23 +1,22 @@
-Cnet:
+Cnet_PretrainedInitializer:
   backend: Cnet_backend
-  datapath: ~/.kaggle/competitions/ultrasound-nerve-segmentation/fulldataset
-  ignore_unlabeled: False
+  datapath: ~/.kaggle/competitions/ultrasound-nerve-segmentation/
+  ignore_unlabeled: True
   optimizer: 'rmsprop'
-  loss_function: 'categorical_crossentropy'
-  classes: 2
-  epochs: 5
-  batch_size: 1
-  learn_rate: 0.0005
+  loss_function: 'dice_crossentropy'
+  classes: 1
+  epochs: 200
+  batch_size: 2
+  learn_rate: 0.005
   dropout: 0.5
-  gate: 0.5
   pretrained: True
   width: 256
   height: 256
-  mask_width: 128
-  mask_height: 128
+  mask_width: 64
+  mask_height: 64
   orig_width: 580
   orig_height: 420
-  summarysteps: 15
+  summarysteps: 100
   gray_img: True
   gray_mask: True
   cnet_levels: 3
