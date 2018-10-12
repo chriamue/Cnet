@@ -1,19 +1,20 @@
 Cnet:
   backend: Cnet_backend
   datapath: ~/.kaggle/competitions/ultrasound-nerve-segmentation/fulldataset
-  ignore_unlabeled: False
-  optimizer: 'rmsprop'
+  ignore_unlabeled: True
+  optimizer: 'adadelta'
   loss_function: 'categorical_crossentropy'
   classes: 2
-  epochs: 200
-  batch_size: 6
-  learn_rate: 0.0005
+  epochs: 20
+  batch_size: 4
+  learn_rate: 0.001
   dropout: 0.5
+  gate: 0.5
   pretrained: True
   width: 256
   height: 256
-  mask_width: 64
-  mask_height: 64
+  mask_width: 128
+  mask_height: 128
   orig_width: 580
   orig_height: 420
   summarysteps: 15
@@ -37,17 +38,14 @@ Cnet:
         p: 1.0
   filters:
   # - 'Cnet.Filters.negative': []
-    - 'Cnet.Filters.sharpen': []
+  #  - 'Cnet.Filters.sharpen': []
   metrices:
     - 'dice': 'protoseg.metrices.dice.dice'
-    - 'jaccard': 'protoseg.metrices.jaccard.jaccard'
     - 'iou': 'protoseg.metrices.iou.iou'
 
   postprocessors:
-    - 'protoseg.postprocessors.threshold.threshold' : [0.2]
-    - 'Cnet.Postprocessors.scalemax' : []
-    - 'protoseg.postprocessors.round.round' : []
-    - 'Cnet.Postprocessors.remove_small' : [100]
+    - 'Cnet.Postprocessors.argmax':
+        background: 0.5
 
   hyperparamopt:
     - optimizer: ['adam', 'rmsprop']

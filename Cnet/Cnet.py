@@ -7,8 +7,9 @@ from keras import backend as K
 from keras_applications import inception_v3
 from keras.engine.saving import load_attributes_from_hdf5_group, load_weights_from_hdf5_group_by_name
 
-from .RandomSelect import RandomSelect
+from .Select import Select
 from .Bridge import Bridge
+
 
 class Cnet(Model):
     def __repr__(self):
@@ -24,7 +25,8 @@ class Cnet(Model):
         self.depth = 3
         self.base_filter = 32
 
-        self.gate = K.variable(1, dtype='uint8', name='gate')
+        self.gates = []
+        self.switches = []
 
         self.batchnorm = True
         self.dropout = dropout
@@ -37,19 +39,26 @@ class Cnet(Model):
         self.bridges = []
         self.b = self.block(self.base_filter//2, self.base_filter, inputs)
         for i in range(self.depth):
+            input_filters = self.base_filter * 2**i
+            output_filters = self.base_filter*2**(i+1)
             self.b = self.downblock(
-                self.base_filter * 2**i, self.base_filter*2**(i+1), self.b)
+                input_filters, output_filters, self.b)
             self.downblocks.append(self.b)
 
         self.bridge = self.downblock(
             self.base_filter*2**self.depth, self.base_filter*2**self.depth, self.b)
 
-        m = 16 * 2**self.depth
+        m = self.base_filter * 2**(self.depth+1)
         for i in range(self.depth):
-            self.b = self.upblock(m // 2**i, m//2**(i+1), self.bridge)
+            input_filters = m // 2**i
+            output_filters = m//2**(i+1)
+            di = self.depth-i-1
+            self.b = self.upblock(input_filters, output_filters, self.bridge)
             self.upblocks.append(self.b)
-            self.bridge = Bridge(self.gate)(
-                [self.b, self.downblocks[self.depth-i-1]])
+            gate = K.variable(1, dtype='uint8', name='gate')
+            self.gates.append(gate)
+            self.bridge = Bridge(gate)(
+                [self.b, self.downblocks[di]])
             self.bridges.append(self.bridge)
 
         self.scale_block = self.upblock(
@@ -115,7 +124,9 @@ class Cnet(Model):
                        padding='same')(x)
             y = BatchNormalization()(y)
             y = Activation(self.activation)(y)
-            x = RandomSelect(self.dropout/(i+1))([x, y])
+            switch = K.variable(1, dtype='uint8', name='switch')
+            self.switches.append(switch)
+            x = Select(switch)([x, y])
         x = Add()([input_layer, x])
         x = Activation(self.activation)(x)
         return x

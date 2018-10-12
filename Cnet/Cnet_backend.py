@@ -62,8 +62,8 @@ class Cnet_backend(AbstractBackend):
         trainer.predictor = Predictor(
             model=trainer.model, config=trainer.config, backend=self)
         self.summary_callback = SummaryCallback(trainer)
-        self.randomize_callback = RandomizeCallback(
-            rate=trainer.config['dropout'])
+        self.randomize_callback = RandomizeCallback(gates=trainer.model.model.gates, switches=trainer.model.model.switches,
+                                                    rate=trainer.config['dropout'])
 
     def dataloader_format(self, img, mask=None):
         img = np.atleast_3d(img)
@@ -101,7 +101,8 @@ class Cnet_backend(AbstractBackend):
         batch_size = trainer.config['batch_size']
         datagen = self.datagenerator(
             trainer.valdataloader.batch_generator(batch_size))
-        global_step = int(trainer.epoch * len(trainer.valdataloader)/batch_size)
+        global_step = int(
+            trainer.epoch * len(trainer.valdataloader)/batch_size)
         for i, (X_batch, y_batch) in enumerate(datagen):
             X_batch = X_batch.astype(np.float32)
             prediction = trainer.predictor.predict(X_batch[0])
@@ -119,7 +120,8 @@ class Cnet_backend(AbstractBackend):
                 trainer.summarywriter.add_image(
                     trainer.name+"val_predicted", predicted, global_step=global_step+i)
                 raw_prediction = self.predict(trainer.predictor, X_batch[0])
-                raw_prediction = (np.sum(raw_prediction, axis=-1) - raw_prediction[:,:,0])/(raw_prediction.shape[-1]-1) # mean of classes without background
+                raw_prediction = (np.sum(raw_prediction, axis=-1) - raw_prediction[:, :, 0])/(
+                    raw_prediction.shape[-1]-1)  # mean of classes without background
                 trainer.summarywriter.add_image(
                     trainer.name+"val_predicted_mean", raw_prediction, global_step=global_step+i)
 
@@ -130,7 +132,6 @@ class Cnet_backend(AbstractBackend):
     def predict(self, predictor, img):
         predict = self.batch_predict(predictor, np.array([img]))[0]
         return predict
-
 
     def batch_predict(self, predictor, img_batch):
         model = predictor.model.model

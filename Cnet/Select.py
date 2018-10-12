@@ -4,17 +4,16 @@ from keras.engine.topology import Layer
 from keras import layers
 
 
-class RandomSelect(Layer):
+class Select(Layer):
     """
         Ignores second layer on given rate during training.
-
     # references
     - [Deep Networks with Stochastic Depth](https://arxiv.org/pdf/1603.09382.pdf)
     """
 
-    def __init__(self, rate=0.5, **kwargs):
-        super(RandomSelect, self).__init__(**kwargs)
-        self.rate = min(1., max(0., rate))
+    def __init__(self, switch, **kwargs):
+        super(Select, self).__init__(**kwargs)
+        self.switch = switch
 
     def build(self, input_shape):
         assert(len(input_shape) == 2)
@@ -25,7 +24,7 @@ class RandomSelect(Layer):
             dtype='float32',
             trainable=False,
         )
-        super(RandomSelect, self).build(input_shape)
+        super(Select, self).build(input_shape)
 
     def compute_output_shape(self, input_shape):
         assert isinstance(input_shape, list)
@@ -36,13 +35,4 @@ class RandomSelect(Layer):
         assert isinstance(inputs, list)
         assert(len(inputs) == 2)
         input_a, input_b = inputs
-        if 0. < self.rate < 1.:
-            if float(np.random.rand(1)) > self.rate:
-                return layers.Add()([
-                    input_b,
-                    K.tf.multiply(self.k, input_a),
-                ])
-        return layers.Add()([
-            input_a,
-            K.tf.multiply(self.k, input_b),
-        ])
+        return K.switch(self.switch, input_a, input_b)
