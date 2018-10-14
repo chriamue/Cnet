@@ -126,7 +126,7 @@ class Cnet(Model):
             y = Activation(self.activation)(y)
             switch = K.variable(1, dtype='uint8', name='switch')
             self.switches.append(switch)
-            x = Select(switch)([x, y])
+            x = Select(switch)([y, x])
         x = Add()([input_layer, x])
         x = Activation(self.activation)(x)
         return x
